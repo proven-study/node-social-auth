@@ -1,33 +1,40 @@
-const passport  = require('passport');
+const passport = require("passport");
+const {
+  BASE_URL,
+  GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET,
+} = require("./config");
 
-require('dotenv').config();
-
-const GoogleStrategy = require('passport-google-oauth2').Strategy;
+const GoogleStrategy = require("passport-google-oauth2").Strategy;
 // const facebookStrategy = require('passport-facebook').Strategy;
 // const LinkedInStrategy = require('passport-linkedin-oauth2').Strategy;
 // const TwitterStrategy = require('passport-twitter').Strategy;
 
 // used to serialize the user for the session
 passport.serializeUser(function (user, done) {
-    done(null, user);
+  done(null, user);
 });
 
 // used to deserialize the user
 passport.deserializeUser(function (user, done) {
-    done(null, user);
+  done(null, user);
 });
 
 //Google strategy
-passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    // callbackURL: "http://localhost:3000/google/callback",
-    callbackURL: "https://reimagined-space-waffle-wg9q75p5rqvf9w46-3000.app.github.dev/google/callback",
-    passReqToCallback: true
-}, (request, accessToken, refreshToken, profile, done) => {
-    console.log(profile)
-    done(null, profile)
-}));
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: GOOGLE_CLIENT_ID,
+      clientSecret: GOOGLE_CLIENT_SECRET,
+      callbackURL: `${BASE_URL}/google/callback`,
+      passReqToCallback: true,
+    },
+    (request, accessToken, refreshToken, profile, done) => {
+      // console.log(profile)
+      done(null, profile);
+    }
+  )
+);
 
 //facebook strategy
 // passport.use(new facebookStrategy({

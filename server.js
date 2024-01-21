@@ -1,81 +1,148 @@
-const express = require('express');
-const passport = require('passport');
-const cookieSession = require('cookie-session')
-require('./passport-setup')
+const express = require("express");
+const passport = require("passport");
+const cookieSession = require("cookie-session");
+const { PORT } = require("./config");
+require("./passport-setup");
 
 const app = express();
 
-app.set("view engine", "ejs")
+app.set("view engine", "ejs");
 
 //Setting up cookies
-app.use(cookieSession({
-    name: 'tuto-session',
-    keys: ['key1', 'key2']
-}))
+app.use(
+  cookieSession({
+    name: "tuto-session",
+    keys: ["key1", "key2"],
+  })
+);
+
+app.use(function (request, response, next) {
+  if (request.session && !request.session.regenerate) {
+    request.session.regenerate = (cb) => {
+      cb();
+    };
+  }
+  if (request.session && !request.session.save) {
+    request.session.save = (cb) => {
+      cb();
+    };
+  }
+  next();
+});
 
 //Logged In Middleware
 const isLoggedIn = (req, res, next) => {
-    if (req.user) {
-        next();
-    } else {
-        res.sendStatus(401);
-    }
-}
+  if (req.user) {
+    next();
+  } else {
+    res.sendStatus(401);
+  }
+};
 
 //Passport Initialized
 app.use(passport.initialize());
 
 //Setting Up Session
-app.use(passport.session())
+app.use(passport.session());
 
-const PORT = process.env.PORT || 3000;
+app.get("/", (req, res) => {
+  if (req.user) {
+    return res.redirect("/good");
+  }
 
-app.get('/', (req, res) => {
-    res.render('pages/index')
-})
+  res.render("pages/index");
+});
 
-app.get('/failed', (req, res) => res.send('You Failed to log in!'))
+app.get("/failed", (req, res) => res.send("You Failed to log in!"));
 
-app.get('/good',  (req, res) => {
-    console.log(req.user.photos[0].value)
-    res.render('pages/profile.ejs',{
-        name:req.user.displayName,
-        pic:req.user._json.picture,
-        email:req.user.emails[0].value,
-        profile: "google"
-    })
-})
+app.get("/good", (req, res) => {
+  if (!req.user) {
+    return res.redirect("/");
+  }
 
-app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+  const {
+    provider,
+    _json: { email, name, picture },
+  } = req.user;
 
-app.get('/google/callback', 
-    passport.authenticate('google', 
-    {failureRedirect: '/failed'}), 
-    (req, res) => {
-        res.redirect('/good');
-    })
+  const data = {
+    name,
+    pic: picture,
+    email,
+    profile: provider,
+  };
 
-app.get('/profile',  (req,res) => {
-    console.log("----->",req.user)
-    res.render('pages/profile', {
-        profile: "facebook",
-        name:req.user.displayName,
-        pic:req.user.photos[0].value,
-        email:req.user.emails[0].value // get the user out of session and pass to template
+  console.log("good----->", data);
+
+  res.render("pages/profile.ejs", data);
+});
+
+app.get(
+  "/auth/google",
+  passport.authenticate("google", { scope: ["profile", "email"] })
+);
+
+app.get(
+  "/google/callback",
+  passport.authenticate("google", { failureRedirect: "/failed" }),
+  (req, res) => {
+    const { provider, _json } = req.user;
+    const {
+      email,
+      email_verified,
+      name,
+      given_name,
+      family_name,
+      picture,
+      domain,
+      locale,
+    } = _json;
+
+    console.log("callback----->", {
+      provider,
+      email,
+      email_verified,
+      name,
+      given_name,
+      family_name,
+      picture,
+      domain,
+      locale,
     });
-})
+
+    // Successful authentication, redirect to good page.
+    return res.redirect("/good");
+  }
+);
+
+app.get("/profile", (req, res) => {
+  console.log("profile----->", req.user);
+
+  if (!req.user) {
+    return res.redirect("/");
+  } else if (req.user.provider === "google") {
+    res.redirect("/good");
+  }
+
+  res.render("pages/profile", {
+    profile: "facebook",
+    name: req.user.displayName,
+    pic: req.user.photos[0].value,
+    email: req.user.emails[0].value, // get the user out of session and pass to template
+  });
+});
 
 // app.get('/auth/facebook', passport.authenticate('facebook', { scope : 'email' }));
 
-// app.get('/auth/linkedin', 
+// app.get('/auth/linkedin',
 //     passport.authenticate('linkedin', {
-//         scope : ['r_emailaddress', 'r_liteprofile'] 
+//         scope : ['r_emailaddress', 'r_liteprofile']
 //     }
 // ));
 
-// app.get('/auth/twitter', 
+// app.get('/auth/twitter',
 //     passport.authenticate('twitter', {
-//         scope : 'email' 
+//         scope : 'email'
 //     }
 // ));
 
@@ -93,7 +160,6 @@ app.get('/profile',  (req,res) => {
 //     }
 // ));
 
-
 // app.get('/twitter/callback',
 //     passport.authenticate('linkedin', {
 //         successRedirect: '/profile',
@@ -101,11 +167,19 @@ app.get('/profile',  (req,res) => {
 //     }
 // ));
 
-app.get('/logout', function(req, res) {
-    req.logout();
-    res.redirect('/');
+app.get("/logout", function (req, res) {
+  req.logout(function (err) {
+    if (err) {
+      return next(err);
+    }
+    res.redirect("/");
+  });
+});
+
+app.use((req, res, next) => {
+  res.status(404).send("Sorry can't find that!");
 });
 
 app.listen(PORT, () => {
-    console.log(`Server is up ${PORT}`)
-})
+  console.log(`Server is up ${PORT}`);
+});
